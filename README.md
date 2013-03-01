@@ -29,3 +29,6 @@ node example.js -u TWITTER_SCREEN_NAME
 ```
 
 You'll get your database fill with the data, notice that the var polyCountryGuate is the polygon data for Guatemala which this script was intended.
+
+To install npm on and node.js on linux use this guide:
+https://ariejan.net/2011/10/24/installing-node-js-and-npm-on-ubuntu-debian
