@@ -26,6 +26,6 @@
     "ansi-color": "^0.2.1",
     "geolib": "^2.0.24",
     "mysql": "^2.16.0",
-    "twit": "git://github.com/rodrigopolo/twit.git"
+    "twit-headers":"git://github.com/rodrigopolo/twit.git"
   }
 }
