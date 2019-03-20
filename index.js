@@ -20,7 +20,7 @@ Copyright (C) 2013  Rodrigo J. Polo - http://rodrigopolo.com
 var mysql   = require('mysql');
 
 // Load Twitter library
-var Twit = require('twit-headers'); // before just twit
+var Twit = require('twit'); // before just twit
 
 // Load the module
 var color = require("ansi-color").set;
