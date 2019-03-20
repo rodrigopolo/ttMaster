@@ -71,9 +71,9 @@ ttMaster.prototype = {
             $this.storeMainUser(json_user,function(studyId){
               // Store the Study ID and Twitter User ID into memory
               $this.studyId = studyId;
-              $this.twUsrId = json_user.id;
+              $this.twUsrId = json_user.id_str;
               // Repor to Sys
-              sout('Twitter user "'+color(json_user.screen_name, "white+bold")+'" ('+json_user.id+') added to MySQL with the id: '+studyId+'.');
+              sout('Twitter user "'+color(json_user.screen_name, "white+bold")+'" ('+json_user.id_str+') added to MySQL with the id: '+studyId+'.');
               sout('Aprox. '+(Math.ceil(json_user.followers_count/5000)+Math.ceil(json_user.followers_count/100))+' Twitter API calls.');
               json_user.followers_count
               // Lets Rock
@@ -176,7 +176,7 @@ ttMaster.prototype = {
     sql += tab+',`requests`'+nl;
     sql += tab+',`user_full_json`'+nl;
     sql += ') VALUES ( '+nl;
-    sql += tab+user.id+nl;
+    sql += tab+user.id_str+nl;
     sql += tab+','+sj(user.screen_name)+nl;
     sql += tab+',UTC_TIMESTAMP()'+nl;
     sql += tab+',1'+nl;
@@ -275,7 +275,7 @@ ttMaster.prototype = {
         $this.updateDone($this.studyId);
         
         setTimeout(function(){
-		  process.stdin.destroy();
+      process.stdin.destroy();
           sout(color("Done! ;-)\t", "green+bold"));
           die();
         }, 2000);
@@ -662,7 +662,7 @@ ttMinion.prototype = {
     sql += tab+',`user_full_json` = '+sj(JSON_stringify(user))+nl;
     sql += 'WHERE'+nl;
     sql += tab+'`stid` ='+studyId+nl;
-    sql += tab+'AND `tuser_id` = '+user.id+';'+nl;
+    sql += tab+'AND `tuser_id` = '+user.id_str+';'+nl;
 
     query(sql,function(rows){
       // add cloudtags
