@@ -1,26 +1,26 @@
 /**
 Copyright (C) 2013  Rodrigo J. Polo - http://rodrigopolo.com
-  
-  This program is free software; you can redistribute it and/or
-  modify it under the terms of the GNU General Public License
-  as published by the Free Software Foundation; either version 2
-  of the License.
-  
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-  
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+	
+	This program is free software; you can redistribute it and/or
+	modify it under the terms of the GNU General Public License
+	as published by the Free Software Foundation; either version 2
+	of the License.
+	
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+	
+	You should have received a copy of the GNU General Public License
+	along with this program; if not, write to the Free Software
+	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 // Load MySQL Library
 var mysql   = require('mysql');
 
 // Load Twitter library
-var Twit = require('twit'); // before just twit
+var Twit = require('twit-headers'); // before just twit
 
 // Load the module
 var color = require("ansi-color").set;
@@ -33,266 +33,268 @@ var conn;
 // task master init
 var ttMaster = function (config) {
 
-  // save config
-  this.config = config;
+	// save config
+	this.config = config;
 
-  // Connect to MySQL
-  conn = mysql.createConnection(this.config.MySQL);
-  conn.connect();
+	// Connect to MySQL
+	conn = mysql.createConnection(this.config.MySQL);
+	conn.connect();
 
-  // set default values
-  this.studyId = 0;
-  this.folIdsCursor = '';
-  this.twUsrId = 0;
-  this.totalTasks = 0;
-  this.aviableMinions = 0;
-  this.minions={};
-  
-  // TEMP STUFF >
-  this.resetAccounts();
+	// set default values
+	this.studyId = 0;
+	this.folIdsCursor = '';
+	this.twUsrId = 0;
+	this.totalTasks = 0;
+	this.aviableMinions = 0;
+	this.minions={};
+	
+	// TEMP STUFF >
+	this.resetAccounts();
 
 };
 
 
 ttMaster.prototype = {
-  getUser: function (screen_name) {
+	getUser: function (screen_name) {
 
 
 
-    var $this = this;
-    //console.log('looking for user:'+screen_name);
+		var $this = this;
+		//console.log('looking for user:'+screen_name);
 
-    $this.initMinions(function(){
-      
-      $this.getAvMinion('rem_usr_lup', function(minion_id){
-        $this.minions['m'+minion_id].lookUpUser(screen_name,function(json_user){
-          if(json_user){
-            // save user and get the id
-            $this.storeMainUser(json_user,function(studyId){
-              // Store the Study ID and Twitter User ID into memory
-              $this.studyId = studyId;
-              $this.twUsrId = json_user.id_str;
-              // Repor to Sys
-              sout('Twitter user "'+color(json_user.screen_name, "white+bold")+'" ('+json_user.id_str+') added to MySQL with the id: '+studyId+'.');
-              sout('Aprox. '+(Math.ceil(json_user.followers_count/5000)+Math.ceil(json_user.followers_count/100))+' Twitter API calls.');
-              json_user.followers_count
-              // Lets Rock
-              $this.getFollowersIds($this.folIdsCursor);
+		$this.initMinions(function(){
+			
+			$this.getAvMinion('rem_usr_lup', function(minion_id){
+				$this.minions['m'+minion_id].lookUpUser(screen_name,function(json_user){
+					if(json_user){
+						// save user and get the id
+						$this.storeMainUser(json_user,function(studyId){
+							// Store the Study ID and Twitter User ID into memory
+							$this.studyId = studyId;
+							$this.twUsrId = json_user.id_str;
+							// Repor to Sys
+							sout('Twitter user "'+color(json_user.screen_name, "white+bold")+'" ('+json_user.id+') added to MySQL with the id: '+studyId+'.');
+							sout('Aprox. '+(Math.ceil(json_user.followers_count/5000)+Math.ceil(json_user.followers_count/100))+' Twitter API calls.');
+							json_user.followers_count
+							// Lets Rock
+							$this.getFollowersIds($this.folIdsCursor);
 
-            });
-          }else{
-            serr('user not found.');
-          }
-        });
-      });
-    });
+						});
+					}else{
+						serr('user not found.');
+					}
+				});
+			});
+		});
 
-  },
+	},
 
-  initMinions: function (callback) {
-    //console.log('minions on');
-    var $this = this;
-    // Select available accounts
-    sql="SELECT `id`, `oauth_token`, `oauth_token_secret` FROM `twitter_accounts` WHERE `busy` =0;";
-    query(sql,function(rows){
-      $this.aviableMinions = rows.length;
-      // Create Minions
-      rows.forEach(function (row, index, array) {
-        //$this.minions.push(new ttMinion(row,$this.config.Twitter));
-        $this.minions['m'+row.id] = new ttMinion(row,$this.config.Twitter);
-      });
-      // Check minion limits for followers
-      $this.checkTwLimits(function(){
-        // ok
-        callback();
-      });
+	initMinions: function (callback) {
+		//console.log('minions on');
+		var $this = this;
+		// Select available accounts
+		sql="SELECT `id`, `oauth_token`, `oauth_token_secret` FROM `twitter_accounts` WHERE `busy` =0;";
+		query(sql,function(rows){
+			$this.aviableMinions = rows.length;
+			// Create Minions
+			rows.forEach(function (row, index, array) {
+				//$this.minions.push(new ttMinion(row,$this.config.Twitter));
+				$this.minions['m'+row.id] = new ttMinion(row,$this.config.Twitter);
+			});
+			// Check minion limits for followers
+			$this.checkTwLimits(function(){
+				// ok
+				callback();
+			});
 
-    });
-  },
+		});
+	},
 
-  checkTwLimits: function (callback) {
-    var $this = this;
-    for (var key in $this.minions) {
-      var minion = $this.minions[key];
-      minion.checkLimit(function(){
-        $this.checkTwLimitsDone(callback);
-      });
-    }
+	checkTwLimits: function (callback) {
+		var $this = this;
+		for (var key in $this.minions) {
+			var minion = $this.minions[key];
+			minion.checkLimit(function(){
+				$this.checkTwLimitsDone(callback);
+			});
+		}
 
-  },
-  checkTwLimitsDone: function (callback) {
-    var $this = this;
-    sql="SELECT * FROM `twitter_accounts` WHERE  `busy` =0;";
-    query(sql,function(rows){
-      sout('Checking rate limit for Twitter Minion '+rows.length+' of '+$this.aviableMinions+'.');
-      if($this.aviableMinions == rows.length){
-        callback();
-      }
-    });
-  },
-  getAvMinion: function (kind, callback) {
+	},
+	checkTwLimitsDone: function (callback) {
+		var $this = this;
+		sql="SELECT * FROM `twitter_accounts` WHERE  `busy` =0;";
+		query(sql,function(rows){
+			sout('Checking rate limit for Twitter Minion '+rows.length+' of '+$this.aviableMinions+'.');
+			if($this.aviableMinions == rows.length){
+				callback();
+			}
+		});
+	},
+	getAvMinion: function (kind, callback) {
 
-    var $this = this;
-    sql = 'SELECT `id`, `rem_fol_ids`, `rem_usr_lup`, `release` FROM `twitter_accounts` WHERE `busy` =0 ORDER BY `'+kind+'` DESC  LIMIT 1;' //`release` DESC,
-    query(sql,function(rows){
+		var $this = this;
+		sql = 'SELECT `id`, `rem_fol_ids`, `rem_usr_lup`, `release` FROM `twitter_accounts` WHERE `busy` =0 ORDER BY `'+kind+'` DESC  LIMIT 1;' //`release` DESC,
+		query(sql,function(rows){
 
-      if(rows.length==0){
-        sout('No accounts available, retry in 3 secs.');
-        setTimeout(function(){
-          $this.getAvMinion(kind, callback);
-        }, 3*1000);  
-      }
+			if(rows.length==0){
+				sout('No accounts available, retry in 3 secs.');
+				setTimeout(function(){
+					$this.getAvMinion(kind, callback);
+				}, 3*1000);  
+			}
 
-      // if there are accounts available
-      if(rows.length==1){
-        // select current account/minion
-        curr_minion = rows[0];
-        // Prevent API overload
-        if(curr_minion[kind]<=1){
-          reset_at = (curr_minion.release - nowUnix());
-          sout(curr_minion.id+":\tRate limited, will be free in "+reset_at.toHHMMSS()+' at '+timeOffst(curr_minion.release,-6)+'.');
-          // run callback when stop waiting
-          setTimeout(function(){
-            callback(curr_minion.id);
-          }, reset_at*1000);
-        }else{
-          callback(rows[0].id);
-        }
-      }
-    });
-  },
-  resetAccounts: function () {
-    sql = 'UPDATE `twitter_accounts` SET `busy` = 0;'
-    query(sql,function(rows){});
-  },
-  storeMainUser: function (user,callback) {
-    var sql = '';
-    var nl = "\n";
-    var tab = "\t";
-    sql += 'INSERT INTO `twitter_user` ('+nl;
-    sql += tab+'`tuser_id`'+nl;
-    sql += tab+',`screen_name`'+nl;
-    sql += tab+',`start`'+nl;
-    sql += tab+',`requests`'+nl;
-    sql += tab+',`user_full_json`'+nl;
-    sql += ') VALUES ( '+nl;
-    sql += tab+user.id_str+nl;
-    sql += tab+','+sj(user.screen_name)+nl;
-    sql += tab+',UTC_TIMESTAMP()'+nl;
-    sql += tab+',1'+nl;
-    sql += tab+','+sj(JSON_stringify(user))+nl;
-    sql += ');';
-    query(sql,function(rows){
-      callback(rows.insertId);
-    });
-  }, 
-  getFollowersIds: function () {
-    var $this = this;
+			// if there are accounts available
+			if(rows.length==1){
+				// select current account/minion
+				curr_minion = rows[0];
+				// Prevent API overload
+				if(curr_minion[kind]<=1){
+					reset_at = (curr_minion.release - nowUnix());
+					sout(curr_minion.id+":\tRate limited, will be free in "+reset_at.toHHMMSS()+' at '+timeOffst(curr_minion.release,-6)+'.');
+					// run callback when stop waiting
+					setTimeout(function(){
+						callback(curr_minion.id);
+					}, reset_at*1000);
+				}else{
+					callback(rows[0].id);
+				}
+			}
+		});
+	},
+	resetAccounts: function () {
+		sql = 'UPDATE `twitter_accounts` SET `busy` = 0;'
+		query(sql,function(rows){});
+	},
+	storeMainUser: function (user,callback) {
+		var sql = '';
+		var nl = "\n";
+		var tab = "\t";
+		sql += 'INSERT INTO `twitter_user` ('+nl;
+		sql += tab+'`tuser_id`'+nl;
+		sql += tab+',`screen_name`'+nl;
+		sql += tab+',`start`'+nl;
+		sql += tab+',`requests`'+nl;
+		sql += tab+',`user_full_json`'+nl;
+		sql += ') VALUES ( '+nl;
+		sql += tab+user.id+nl;
+		sql += tab+','+sj(user.screen_name)+nl;
+		sql += tab+',UTC_TIMESTAMP()'+nl;
+		sql += tab+',1'+nl;
+		sql += tab+','+sj(JSON_stringify(user))+nl;
+		sql += ');';
+		query(sql,function(rows){
+			callback(rows.insertId);
+		});
+	}, 
+	getFollowersIds: function () {
+		var $this = this;
 
-    $this.getAvMinion('rem_fol_ids', function(minion_id){
-      sout('Request user ids to Twitter API.');
-      $this.minions['m'+minion_id].getFolIds($this.twUsrId,$this.folIdsCursor,function(jsonIds){
-        if(jsonIds){
+		$this.getAvMinion('rem_fol_ids', function(minion_id){
+			sout('Request user ids to Twitter API.');
+			$this.minions['m'+minion_id].getFolIds($this.twUsrId,$this.folIdsCursor,function(jsonIds){
+				if(jsonIds){
 
-          // insert the ids into MySQL
-          $this.createFollowers(jsonIds.ids,function(){
-            sout('IDs Inserted.');
+					//console.log(jsonIds);
 
-            if(jsonIds.next_cursor_str.length>1){
-              // update cursor
-              $this.folIdsCursor = jsonIds.next_cursor_str;
-              // loop
-              $this.getFollowersIds($this.folIdsCursor);
-            }else{
-              $this.createTasks(function(){
-                $this.getThoFollowers();
-              });
-            }
+					// insert the ids into MySQL
+					$this.createFollowers(jsonIds.ids,function(){
+						sout('IDs Inserted.');
 
-          });
-        }else{
-          // loop if cursor
-          $this.getFollowersIds($this.folIdsCursor);
-        }
-      });
-    });
-  },
-  createFollowers: function (ids,callback) {
-    var $this = this;
-    ids.forEach(function (tuId, index, array) {
-      sql = 'INSERT INTO `twitter_followers` (`stid`, `tuser_id`) VALUES ('+$this.studyId+', '+tuId+');';
-      query(sql,function(rows){});
-    });
-    callback();
-  },
-  createTasks: function (callback) {
-    var $this = this;
-    sout('Creating Tasks.');
-    sql = 'CALL createTasks('+$this.studyId+');';
-    query(sql,function(rows){
-      sout('Tasks creation done.');
-      callback();
-    });
-  },
-  getThoFollowers: function () {
-    var $this = this;
+						if(jsonIds.next_cursor_str.length>1){
+							// update cursor
+							$this.folIdsCursor = jsonIds.next_cursor_str;
+							// loop
+							$this.getFollowersIds($this.folIdsCursor);
+						}else{
+							$this.createTasks(function(){
+								$this.getThoFollowers();
+							});
+						}
 
-     // count total tasks and store in memory
-    $this.getPendingTasks(function(totalTsks){
-      $this.totalTasks = totalTsks;
+					});
+				}else{
+					// loop if cursor
+					$this.getFollowersIds($this.folIdsCursor);
+				}
+			});
+		});
+	},
+	createFollowers: function (ids,callback) {
+		var $this = this;
+		ids.forEach(function (tuId, index, array) {
+			sql = 'INSERT INTO `twitter_followers` (`stid`, `tuser_id`) VALUES ('+$this.studyId+', '+tuId+');';
+			query(sql,function(rows){});
+		});
+		callback();
+	},
+	createTasks: function (callback) {
+		var $this = this;
+		sout('Creating Tasks.');
+		sql = 'CALL createTasks('+$this.studyId+');';
+		query(sql,function(rows){
+			sout('Tasks creation done.');
+			callback();
+		});
+	},
+	getThoFollowers: function () {
+		var $this = this;
 
-        for (var key in $this.minions) {
-          var minion = $this.minions[key];
-          minion.getFollowers($this.studyId, function(){
-            $this.checkFollowersProgress();
-          });
-        }
+		 // count total tasks and store in memory
+		$this.getPendingTasks(function(totalTsks){
+			$this.totalTasks = totalTsks;
 
-    });  
+				for (var key in $this.minions) {
+					var minion = $this.minions[key];
+					minion.getFollowers($this.studyId, function(){
+						$this.checkFollowersProgress();
+					});
+				}
 
-  },
-  getPendingTasks: function (callback) {
-    var $this = this;
-    sql = 'SELECT count(id) as ttotal FROM `twitter_thu_taks` WHERE `stid` = '+$this.studyId+' AND `done` = 0;';
-    query(sql,function(rows){
-      callback(parseInt(rows[0].ttotal));
-    });
-  },
-  checkFollowersProgress: function () {
-    var $this = this;
-    $this.getPendingTasks(function(pendingTasks){
-      //console.log('Total Tasks: ' + $this.totalTasks);
-      //console.log('Pending Tasks: ' + pendingTasks);
-      //console.log('Done Tasks: ' + ($this.totalTasks-pendingTasks));
+		});  
 
-      donet = $this.totalTasks-pendingTasks;
-      perc = ((donet / $this.totalTasks)*100).toFixed(2);
+	},
+	getPendingTasks: function (callback) {
+		var $this = this;
+		sql = 'SELECT count(id) as ttotal FROM `twitter_thu_taks` WHERE `stid` = '+$this.studyId+' AND `done` = 0;';
+		query(sql,function(rows){
+			callback(parseInt(rows[0].ttotal));
+		});
+	},
+	checkFollowersProgress: function () {
+		var $this = this;
+		$this.getPendingTasks(function(pendingTasks){
+			//console.log('Total Tasks: ' + $this.totalTasks);
+			//console.log('Pending Tasks: ' + pendingTasks);
+			//console.log('Done Tasks: ' + ($this.totalTasks-pendingTasks));
 
-      sout(color(perc+'% - ('+donet+' of '+$this.totalTasks+').', "green"));
-      if(pendingTasks == 0){
+			donet = $this.totalTasks-pendingTasks;
+			perc = ((donet / $this.totalTasks)*100).toFixed(2);
 
-        // marcar hora de terminado en user
-        $this.updateDone($this.studyId);
-        
-        setTimeout(function(){
-      process.stdin.destroy();
-          sout(color("Done! ;-)\t", "green+bold"));
-          die();
-        }, 2000);
+			sout(color(perc+'% - ('+donet+' of '+$this.totalTasks+').', "green"));
+			if(pendingTasks == 0){
 
-      }else{
-        // nada
-      }
-    });
+				// marcar hora de terminado en user
+				$this.updateDone($this.studyId);
+				
+				setTimeout(function(){
+			process.stdin.destroy();
+					sout(color("Done! ;-)\t", "green+bold"));
+					die();
+				}, 2000);
 
-  },
-  updateDone: function (studyId) {
-    sql = 'UPDATE `twitter_user` SET `stop` = UTC_TIMESTAMP() WHERE `id` ='+studyId+';'
-    query(sql,function(rows){});
-  },
-  end: function (param,callback) {
-    conn.end();
-  }
+			}else{
+				// nada
+			}
+		});
+
+	},
+	updateDone: function (studyId) {
+		sql = 'UPDATE `twitter_user` SET `stop` = UTC_TIMESTAMP() WHERE `id` ='+studyId+';'
+		query(sql,function(rows){});
+	},
+	end: function (param,callback) {
+		conn.end();
+	}
 };
 
 
@@ -302,406 +304,412 @@ ttMaster.prototype = {
 
 // Twitter Account Minion
 var ttMinion = function (me,Tw) {
-  this.config = me;
-  this.id = me.id;
-  this.T = new Twit({
-    consumer_key:           Tw.consumer_key,
-    consumer_secret:        Tw.consumer_secret,
-    access_token:           me.oauth_token,
-    access_token_secret:    me.oauth_token_secret 
-  });
+	this.config = me;
+	this.id = me.id;
+	this.T = new Twit({
+		consumer_key:           Tw.consumer_key,
+		consumer_secret:        Tw.consumer_secret,
+		access_token:           me.oauth_token,
+		access_token_secret:    me.oauth_token_secret 
+	});
 };
 
 ttMinion.prototype = {
-  setBusy: function () {
-    sql = 'UPDATE `twitter_accounts` SET `busy` = 1 WHERE `id` = '+this.config.id+';'
-    query(sql,function(rows){
-      // result
-    });
-  },
+	setBusy: function () {
+		sql = 'UPDATE `twitter_accounts` SET `busy` = 1 WHERE `id` = '+this.config.id+';'
+		query(sql,function(rows){
+			// result
+		});
+	},
 
-  setFree: function (rel, freq, ureq) {
+	setFree: function (rel, freq, ureq) {
 
-    relsq  = (rel <0 || rel ==undefined)?'':', `release` = '+rel;
-    freqsq = (freq<0 || freq==undefined)?'':', `rem_fol_ids` = '+freq;
-    ureqsq = (ureq<0 || ureq==undefined)?'':', `rem_usr_lup` = '+ureq;
+		relsq  = (rel <0 || rel ==undefined)?'':', `release` = '+rel;
+		freqsq = (freq<0 || freq==undefined)?'':', `rem_fol_ids` = '+freq;
+		ureqsq = (ureq<0 || ureq==undefined)?'':', `rem_usr_lup` = '+ureq;
 
-    sql = 'UPDATE `twitter_accounts` SET `busy` = 0'+relsq+freqsq+''+ureqsq+' WHERE `id` = '+this.config.id+';';
-    query(sql,function(rows){
-      // result
-    });
-  },
+		sql = 'UPDATE `twitter_accounts` SET `busy` = 0'+relsq+freqsq+''+ureqsq+' WHERE `id` = '+this.config.id+';';
+		query(sql,function(rows){
+			// result
+		});
+	},
 
-  checkLimit: function (callback) {
-    var $this = this;
-    $this.setBusy();
-    $this.T.get('application/rate_limit_status', {}, function(err, reply, headers) {
+	checkLimit: function (callback) {
+		var $this = this;
+		$this.setBusy();
+		$this.T.get('application/rate_limit_status', {}, function(err, reply, headers) {
 
-      todoNext = $this.chkErr(err);
-      if(todoNext==1){
-        fol = reply.resources.followers['/followers/ids'];
-        usr = reply.resources.users['/users/lookup'];
-        $this.setFree(usr.reset, fol.remaining, usr.remaining);
-        callback();
-      }
-      if(todoNext==3){
-        $this.setFree(-1, -1, -1);
-        callback();
-      }
-      if(todoNext==2){
-        // loop to retry
-        $this.checkLimit(callback);
-      }
-    });
-  },
+			todoNext = $this.chkErr(err);
+			if(todoNext==1){
+				fol = reply.resources.followers['/followers/ids'];
+				usr = reply.resources.users['/users/lookup'];
+				$this.setFree(usr.reset, fol.remaining, usr.remaining);
+				callback();
+			}
+			if(todoNext==3){
+				$this.setFree(-1, -1, -1);
+				callback();
+			}
+			if(todoNext==2){
+				// loop to retry
+				$this.checkLimit(callback);
+			}
+		});
+	},
 
-  chkErr: function (err) {
-    if(err){
-      if(err.code){
-        if(err.code=='ECONNRESET'){
-          sout(color(this.id+":\tTwitter API ECONNRESET error.", "yellow"));
-          return 2;
-        }
-      }
-      if(err.statusCode){
-        if(err.statusCode==404){
-          sout(color(this.id+":\tTwitter API 404 error.", "yellow"));
-          return 3;
-        }
-        if(err.statusCode==502){
-           sout(color(this.id+":\tTwitter API 502 error.", "yellow"));
-          return 2;
-        }
-        sout(color(this.id+":\tTwitter API:"+err.statusCode, "yellow"));
-        /*sout('>>>');
-        sout(JSON_stringify(err));
-        sout('<<<');*/
-        return 2;
-      }else{
-        sout(color(this.id+":\tTwitter API - Unknown.", "yellow"));
-        /*sout('>>>');
-        sout(JSON_stringify(err));
-        sout('<<<');*/
-        return 2;
-      }
-    }else{
-      return 1;
-    }
-  },
+	chkErr: function (err) {
+		if(err){
+			if(err.code){
+				if(err.code=='ECONNRESET'){
+					sout(color(this.id+":\tTwitter API ECONNRESET error.", "yellow"));
+					return 2;
+				}
+			}
+			if(err.statusCode){
+				if(err.statusCode==404){
+					sout(color(this.id+":\tTwitter API 404 error.", "yellow"));
+					return 3;
+				}
+				if(err.statusCode==502){
+					 sout(color(this.id+":\tTwitter API 502 error.", "yellow"));
+					return 2;
+				}
+				sout(color(this.id+":\tTwitter API:"+err.statusCode, "yellow"));
+				/*sout('>>>');
+				sout(JSON_stringify(err));
+				sout('<<<');*/
+				return 2;
+			}else{
+				sout(color(this.id+":\tTwitter API - Unknown.", "yellow"));
+				/*sout('>>>');
+				sout(JSON_stringify(err));
+				sout('<<<');*/
+				return 2;
+			}
+		}else{
+			return 1;
+		}
+	},
 
-  lookUpUser: function (usersn,callback) {
-    var $this = this;
-    $this.setBusy();
-    $this.T.get('users/lookup', {
-      screen_name: usersn,
-      include_entities:true
-    }, function(err, reply, h) {
+	lookUpUser: function (usersn,callback) {
+		var $this = this;
+		$this.setBusy();
+		$this.T.get('users/lookup', {
+			screen_name: usersn,
+			include_entities:true
+		}, function(err, reply, h) {
 
-      todoNext = $this.chkErr(err);
+			todoNext = $this.chkErr(err);
 
-      if(todoNext==1){
-        $this.setFree(h['x-rate-limit-reset'], -1, h['x-rate-limit-remaining']);
-        callback(reply[0]);
-      }
-      if(todoNext==3){
-        $this.setFree(-1, -1, -1);
-        callback(false);
-      }
-      if(todoNext==2){
-        // loop to retry
-        $this.lookUpUser(usersn,callback);
-      }
+			if(todoNext==1){
+				$this.setFree(h['x-rate-limit-reset'], -1, h['x-rate-limit-remaining']);
+				callback(reply[0]);
+			}
+			if(todoNext==3){
+				$this.setFree(-1, -1, -1);
+				callback(false);
+			}
+			if(todoNext==2){
+				// loop to retry
+				$this.lookUpUser(usersn,callback);
+			}
 
-    });
-  },
+		});
+	},
 
-  getFolIds: function (twusrid,dcursor,callback) {
-    var $this = this;
+	getFolIds: function (twusrid,dcursor,callback) {
+		var $this = this;
 
-    if(dcursor.length<1){
-      req_params={
-        user_id:  twusrid
-      }
-    }else{
-      req_params={
-        user_id:  twusrid,
-        cursor:   dcursor
-      }
-    }
+		if(dcursor.length<1){
+			req_params={
+				user_id:  twusrid
+			}
+		}else{
+			req_params={
+				user_id:  twusrid,
+				cursor:   dcursor
+			}
+		}
 
-    $this.setBusy();
-    $this.T.get('followers/ids', req_params, function(err, reply, h) {
+		req_params.stringify_ids = true;
 
-      todoNext = $this.chkErr(err);
+		$this.setBusy();
+		// friends/ids
+		// followers/ids
+		$this.T.get('followers/ids', req_params, function(err, reply, h) {
 
-      if(todoNext==1){
-        //console.log($this.config.id+':Check-> '+h['x-rate-limit-reset']+' - '+h['x-rate-limit-remaining']);
-        $this.setFree(h['x-rate-limit-reset'], h['x-rate-limit-remaining'],-1);
-        callback(reply);
-      }
-      // if any kind of failure the task master should relocate the task to the best available minion
-      if(todoNext==3 || todoNext==2){
-        $this.setFree(-1, -1, -1);
-        callback(false);
-      }
+			todoNext = $this.chkErr(err);
 
-    });
-  },
+			if(todoNext==1){
+				//console.log($this.config.id+':Check-> '+h['x-rate-limit-reset']+' - '+h['x-rate-limit-remaining']);
+				$this.setFree(h['x-rate-limit-reset'], h['x-rate-limit-remaining'],-1);
+				callback(reply);
+			}
+			// if any kind of failure the task master should relocate the task to the best available minion
+			if(todoNext==3 || todoNext==2){
+				$this.setFree(-1, -1, -1);
+				callback(false);
+			}
 
-
-  getFollowers: function (studyId, callback) {
-    var $this = this;
-
-    //console.log($this.id+' dice Iniciando para: '+studyId);
-
-    // get a free task
-    $this.getFreeTask(studyId, function(freeTask){
-      //console.log($this.id+' dice freeTask para: '+studyId);
-
-      // set busy
-      $this.setBusy();
-
-      // request to twitter api
-      $this.T.get('users/lookup', {
-        user_id: freeTask.ids,
-        include_entities:true
-      }, function(err, reply, h) {
-
-        todoNext = $this.chkErr(err);
-
-         // if success, enter to db, mark task as done, set free, callback
-        if(todoNext==1){
-          //console.log($this.id+' dice que todo bien.');
-          // store on DB function AND EXTRACT KEYWORDS ------------------------------------------------------------------------
-          reply.forEach(function (twuser, index, array) {
-            $this.updateFollower(twuser,studyId);
-          });
+		});
+	},
 
 
-          // mark task as NOT busy and done
-          $this.setTaskDone(freeTask.work_id,function(){
+	getFollowers: function (studyId, callback) {
+		var $this = this;
 
-            //console.log($this.id+' dice LIBERAR - Rate: ' + h['x-rate-limit-reset'] + ' - LimitRem: ' + h['x-rate-limit-remaining']);
-            $this.setFree(h['x-rate-limit-reset'],-1, h['x-rate-limit-remaining']);
+		//console.log($this.id+' dice Iniciando para: '+studyId);
 
-            // prevent overuse
-            if(h['x-rate-limit-remaining']!= undefined){
-              if(h['x-rate-limit-remaining']<=1){
+		// get a free task
+		$this.getFreeTask(studyId, function(freeTask){
+			//console.log($this.id+' dice freeTask para: '+studyId);
 
-                reset_at = (parseInt(h['x-rate-limit-reset']) - nowUnix());
+			// set busy
+			$this.setBusy();
 
-                //console.log($this.id+' dice que solo le queda 1 y setea a: '+reset_at); 
-                setTimeout(function(){
-                  $this.getFollowers(studyId, callback);
-                }, reset_at*1000);  
+			// request to twitter api
+			$this.T.get('users/lookup', {
+				user_id: freeTask.ids,
+				include_entities:true
+			}, function(err, reply, h) {
 
-              }else{
-                // loop
-                //console.log($this.id+' dice que header definido y mayor que 1.');
-                $this.getFollowers(studyId, callback);
-                callback();
-              }
-            }else{
-              // loop
-              $this.getFollowers(studyId, callback);
-              callback();
-            }
-            
-          });
+				todoNext = $this.chkErr(err);
+
+				 // if success, enter to db, mark task as done, set free, callback
+				if(todoNext==1){
+					//console.log($this.id+' dice que todo bien.');
+					// store on DB function AND EXTRACT KEYWORDS ------------------------------------------------------------------------
+					reply.forEach(function (twuser, index, array) {
+						$this.updateFollower(twuser,studyId);
+					});
 
 
-        }
+					// mark task as NOT busy and done
+					$this.setTaskDone(freeTask.work_id,function(){
 
-        // if not, mark task as free task and callback to prevent account issues
-        if(todoNext==2){
-          // set task free and NOT done
-          $this.resetTask(freeTask.work_id,function(){
-            // set minion free
-            $this.setFree(-1, -1, -1);
+						//console.log($this.id+' dice LIBERAR - Rate: ' + h['x-rate-limit-reset'] + ' - LimitRem: ' + h['x-rate-limit-remaining']);
+						$this.setFree(h['x-rate-limit-reset'],-1, h['x-rate-limit-remaining']);
 
-            // loop
-            $this.getFollowers(studyId, callback);
+						// prevent overuse
+						if(h['x-rate-limit-remaining']!= undefined){
+							if(h['x-rate-limit-remaining']<=1){
 
-            callback();
-          });
-        }
+								reset_at = (parseInt(h['x-rate-limit-reset']) - nowUnix());
 
-        // not found, mark as done but stay busy, callback
-        if(todoNext==3){
-          // set task free and NOT done
-          $this.setTaskPending(freeTask.work_id,function(){
-            // set minion free
-            $this.setFree(-1, -1, -1);
+								//console.log($this.id+' dice que solo le queda 1 y setea a: '+reset_at); 
+								setTimeout(function(){
+									$this.getFollowers(studyId, callback);
+								}, reset_at*1000);  
 
-            // loop
-            $this.getFollowers(studyId, callback);
-
-            callback();
-          });
-        }
-
-      });
-
-    });
+							}else{
+								// loop
+								//console.log($this.id+' dice que header definido y mayor que 1.');
+								$this.getFollowers(studyId, callback);
+								callback();
+							}
+						}else{
+							// loop
+							$this.getFollowers(studyId, callback);
+							callback();
+						}
+						
+					});
 
 
+				}
+
+				// if not, mark task as free task and callback to prevent account issues
+				if(todoNext==2){
+					// set task free and NOT done
+					$this.resetTask(freeTask.work_id,function(){
+						// set minion free
+						$this.setFree(-1, -1, -1);
+
+						// loop
+						$this.getFollowers(studyId, callback);
+
+						callback();
+					});
+				}
+
+				// not found, mark as done but stay busy, callback
+				if(todoNext==3){
+					// set task free and NOT done
+					$this.setTaskPending(freeTask.work_id,function(){
+						// set minion free
+						$this.setFree(-1, -1, -1);
+
+						// loop
+						$this.getFollowers(studyId, callback);
+
+						callback();
+					});
+				}
+
+			});
+
+		});
 
 
-  },
-
-  getFreeTask: function (stId, callback) {
-    var $this = this;
-    sql = 'CALL getFree('+stId+');';
-    query(sql,function(rows){
-      res = rows[0][0]; // work_id ids
-      // if it is 0 there are not works, so it is done!
-      if(res.work_id>0){
-        callback(res);
-      }
-      
-    });
-  },
-
-  // Putting The Icing On The Cake ;-)
-  updateFollower: function (user,studyId) {
-    var $this = this;
-    var sql = '';
-    var nl = "\n";
-    var tab = "\t";
-    var active = true;
-    var plainTextTW='';
-
-    sql += 'UPDATE `twitter_followers`'+nl;
-    sql += 'SET'+nl;
-    sql += tab+'`protected` = '+user.protected+nl;
-    sql += tab+',`created_at` = '+sj(twit_date(user.created_at))+nl;
-    sql += tab+',`statuses_count` = '+user.statuses_count+nl;
-    sql += tab+',`followers_count` = '+user.followers_count+nl;
-    sql += tab+',`friends_count` = '+user.friends_count+nl;
-    sql += tab+',`listed_count` = '+user.listed_count+nl;
-    sql += tab+',`favourites_count` = '+user.favourites_count+nl;
-    sql += tab+',`screen_name` = '+sj(user.screen_name)+nl;
-    sql += tab+',`name` = '+sj(user.name)+nl;
-    sql += tab+',`description` = '+sj(user.description)+nl;
-    sql += tab+',`profile_image_url` = '+sj(user.profile_image_url)+nl;
-    sql += tab+',`url` = '+sj(user.url)+nl;
-    sql += tab+',`location` = '+sj(user.location)+nl;
-    sql += tab+',`time_zone` = '+sj(user.time_zone)+nl;
-    sql += tab+',`utc_offset` = '+sj(user.utc_offset)+nl;
-
-    // extract geo-lat-lng from location
-    if(user.location){
-      if(matches=user.location.match(/([0-9.-]+).+?([0-9.-]+)/)){
-        if(matches.length==3){
-          ulat=parseFloat(matches[1]);
-          ulng=parseFloat(matches[2]);
-          if(!isNaN(ulat) && !isNaN(ulng)){
-            if(ulat>= -90 && ulat <= 90 && ulng >= -180 && ulng <= 180){
-              // si tiene coordenadas
-              sql += tab+',`nlat` = '+ulat+nl;
-              sql += tab+',`nlng` = '+ulng+nl;
-              if(isInPolygon(ulat, ulng, polyCountryGuate)){
-                // Guate
-                sql += tab+',`ncountry` = '+"'Guatemala GPS_FL'"+nl;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // check if it has an status
-    if(user.status){
-      plainTextTW = tweetPlain(user.status.text, user.status.entities);
-
-      sql += tab+',`lt_created_at` = '+sj(twit_date(user.status.created_at))+nl;
-      sql += tab+',`lt_id` = '+user.status.id_str+nl;
-      sql += tab+',`lt_source_text` = '+strip_html(sj(user.status.source))+nl;
-      sql += tab+',`lt_source_url` = '+sj(find1stURL(user.status.source))+nl;
-      sql += tab+',`lt_htmltext` = '+sj(plainTextTW)+nl;
-
-      // get geoloc from status
-      if(user.status.geo){
-        if(user.status.geo.coordinates.length==2){
-          ulat=user.status.geo.coordinates[0];
-          ulng=user.status.geo.coordinates[1];
-          if(!isNaN(ulat) && !isNaN(ulng)){
-            if(ulat>= -90 && ulat <= 90 && ulng >= -180 && ulng <= 180){
-              // si tiene coordenadas
-              sql += tab+',`nlat` = '+ulat+nl;
-              sql += tab+',`nlng` = '+ulng+nl;
-              if(isInPolygon(ulat, ulng, polyCountryGuate)){
-                // Guate
-                sql += tab+',`ncountry` = '+"'Guatemala GPS_FS'"+nl;
-              }
-            }
-          }
-        }
-      }
-
-      // more than two months without tweeting
-      if(elapsedDays(user.status.created_at)>60){
-        active = false;
-      }
-
-    }
-
-    if(user.statuses_count<10 || user.followers_count<10){
-      active = false;
-    }
 
 
-    // active users
-    if(active){
-      sql += tab+',`inactivo` = 0'+nl;;
-    }else{
-      sql += tab+',`inactivo` = 1'+nl;;
-    }
+	},
 
-    // full json object
-    sql += tab+',`user_full_json` = '+sj(JSON_stringify(user))+nl;
-    sql += 'WHERE'+nl;
-    sql += tab+'`stid` ='+studyId+nl;
-    sql += tab+'AND `tuser_id` = '+user.id_str+';'+nl;
+	getFreeTask: function (stId, callback) {
+		var $this = this;
+		sql = 'CALL getFree('+stId+');';
+		query(sql,function(rows){
+			res = rows[0][0]; // work_id ids
+			// if it is 0 there are not works, so it is done!
+			if(res.work_id>0){
+				callback(res);
+			}
+			
+		});
+	},
 
-    query(sql,function(rows){
-      // add cloudtags
-      $this.addCloudTag(plainTextTW,studyId);
-      //callback();
-    });
-    
+	// Putting The Icing On The Cake ;-)
+	updateFollower: function (user,studyId) {
+		var $this = this;
+		var sql = '';
+		var nl = "\n";
+		var tab = "\t";
+		var active = true;
+		var plainTextTW='';
 
-  },
+		sql += 'UPDATE `twitter_followers`'+nl;
+		sql += 'SET'+nl;
+		sql += tab+'`protected` = '+user.protected+nl;
+		sql += tab+',`created_at` = '+sj(twit_date(user.created_at))+nl;
+		sql += tab+',`statuses_count` = '+user.statuses_count+nl;
+		sql += tab+',`followers_count` = '+user.followers_count+nl;
+		sql += tab+',`friends_count` = '+user.friends_count+nl;
+		sql += tab+',`listed_count` = '+user.listed_count+nl;
+		sql += tab+',`favourites_count` = '+user.favourites_count+nl;
+		sql += tab+',`screen_name` = '+sj(user.screen_name)+nl;
+		sql += tab+',`name` = '+sj(user.name)+nl;
+		sql += tab+',`description` = '+sj(user.description)+nl;
+		sql += tab+',`profile_image_url` = '+sj(user.profile_image_url)+nl;
+		sql += tab+',`url` = '+sj(user.url)+nl;
+		sql += tab+',`location` = '+sj(user.location)+nl;
+		sql += tab+',`time_zone` = '+sj(user.time_zone)+nl;
+		sql += tab+',`utc_offset` = '+sj(user.utc_offset)+nl;
 
-  setTaskDone: function (taskId, callback) {
-    sql = 'UPDATE `twitter_thu_taks` SET `busy` =0, `done` =1 WHERE `id` ='+taskId+';';
-    query(sql,function(rows){
-      callback();
-    });
-  },
+		// extract geo-lat-lng from location
+		if(user.location){
+			if(matches=user.location.match(/([0-9.-]+).+?([0-9.-]+)/)){
+				if(matches.length==3){
+					ulat=parseFloat(matches[1]);
+					ulng=parseFloat(matches[2]);
+					if(!isNaN(ulat) && !isNaN(ulng)){
+						if(ulat>= -90 && ulat <= 90 && ulng >= -180 && ulng <= 180){
+							// si tiene coordenadas
+							sql += tab+',`nlat` = '+ulat+nl;
+							sql += tab+',`nlng` = '+ulng+nl;
+							if(isInPolygon(ulat, ulng, polyCountryGuate)){
+								// Guate
+								sql += tab+',`ncountry` = '+"'Guatemala GPS_FL'"+nl;
+							}
+						}
+					}
+				}
+			}
+		}
 
-  setTaskPending: function (taskId, callback) {
-    sql = 'UPDATE `twitter_thu_taks` SET `busy` =1, `done` =1 WHERE `id` ='+taskId+';';
-    query(sql,function(rows){
-      callback();
-    });
-  },
+		// check if it has an status
+		if(user.status){
+			plainTextTW = tweetPlain(user.status.text, user.status.entities);
 
-  resetTask: function (taskId, callback) {
-    sql = 'UPDATE `twitter_thu_taks` SET `busy` =0, `done` =0 WHERE `id` ='+taskId+';';
-    query(sql,function(rows){
-      callback();
-    });
-  },
-  addCloudTag: function (s,study) {
-    tags = cloudtagExtractor(s);
-    for(var word in tags){
-      sql = "CALL cloudTagInsert("+study+",'"+word+"',"+tags[word]+");";
-    }
-    query(sql,function(rows){
-      // nada
-    });
-  }
+			sql += tab+',`lt_created_at` = '+sj(twit_date(user.status.created_at))+nl;
+			sql += tab+',`lt_id` = '+user.status.id_str+nl;
+			sql += tab+',`lt_source_text` = '+strip_html(sj(user.status.source))+nl;
+			sql += tab+',`lt_source_url` = '+sj(find1stURL(user.status.source))+nl;
+			sql += tab+',`lt_htmltext` = '+sj(plainTextTW)+nl;
+
+			// get geoloc from status
+			if(user.status.geo){
+				if(user.status.geo.coordinates.length==2){
+					ulat=user.status.geo.coordinates[0];
+					ulng=user.status.geo.coordinates[1];
+					if(!isNaN(ulat) && !isNaN(ulng)){
+						if(ulat>= -90 && ulat <= 90 && ulng >= -180 && ulng <= 180){
+							// si tiene coordenadas
+							sql += tab+',`nlat` = '+ulat+nl;
+							sql += tab+',`nlng` = '+ulng+nl;
+							if(isInPolygon(ulat, ulng, polyCountryGuate)){
+								// Guate
+								sql += tab+',`ncountry` = '+"'Guatemala GPS_FS'"+nl;
+							}
+						}
+					}
+				}
+			}
+
+			// more than two months without tweeting
+			if(elapsedDays(user.status.created_at)>60){
+				active = false;
+			}
+
+		}
+
+		if(user.statuses_count<10 || user.followers_count<10){
+			active = false;
+		}
+
+
+		// active users
+		if(active){
+			sql += tab+',`inactivo` = 0'+nl;;
+		}else{
+			sql += tab+',`inactivo` = 1'+nl;;
+		}
+
+		// full json object
+		sql += tab+',`user_full_json` = '+sj(JSON_stringify(user))+nl;
+		sql += 'WHERE'+nl;
+		sql += tab+'`stid` ='+studyId+nl;
+		sql += tab+'AND `tuser_id` = '+user.id_str+';'+nl;
+
+		//console.log(user.id_str+''+user.protected);
+
+		query(sql,function(rows){
+			// add cloudtags
+			$this.addCloudTag(plainTextTW,studyId);
+			//callback();
+		});
+		
+
+	},
+
+	setTaskDone: function (taskId, callback) {
+		sql = 'UPDATE `twitter_thu_taks` SET `busy` =0, `done` =1 WHERE `id` ='+taskId+';';
+		query(sql,function(rows){
+			callback();
+		});
+	},
+
+	setTaskPending: function (taskId, callback) {
+		sql = 'UPDATE `twitter_thu_taks` SET `busy` =1, `done` =1 WHERE `id` ='+taskId+';';
+		query(sql,function(rows){
+			callback();
+		});
+	},
+
+	resetTask: function (taskId, callback) {
+		sql = 'UPDATE `twitter_thu_taks` SET `busy` =0, `done` =0 WHERE `id` ='+taskId+';';
+		query(sql,function(rows){
+			callback();
+		});
+	},
+	addCloudTag: function (s,study) {
+		tags = cloudtagExtractor(s);
+		for(var word in tags){
+			sql = "CALL cloudTagInsert("+study+",'"+word+"',"+tags[word]+");";
+		}
+		query(sql,function(rows){
+			// nada
+		});
+	}
 }
 
 
@@ -719,32 +727,32 @@ module.exports = ttMaster;
 
 // MySQL Query Function
 var query = function (sql,callback) {
-  conn.query(sql, function(err, rows, fields) {
-    if (err){
-      serr("MySQL says: \n"+err+"\nQuery:\n"+sql+"\n\n");
-    }else{
-      callback(rows);
-    }
-  });
+	conn.query(sql, function(err, rows, fields) {
+		if (err){
+			serr("MySQL says: \n"+err+"\nQuery:\n"+sql+"\n\n");
+		}else{
+			callback(rows);
+		}
+	});
 }
 
 // kill connection
 var dead = false;
 die = function () {
-  if(!dead){
-    dead = true;
-    conn.end();
-  }
+	if(!dead){
+		dead = true;
+		conn.end();
+	}
 }
 
 // stdout 
 var sout = function (s) {
-  process.stdout.write(s+"\n");
+	process.stdout.write(s+"\n");
 }
 
 // stderr
 var serr = function (s) {
-  process.stderr.write(color("Error: ", "red+bold")+s+"\n");
+	process.stderr.write(color("Error: ", "red+bold")+s+"\n");
 }
 
 // required to match geoloc
@@ -752,7 +760,7 @@ var geolib = require('geolib');
 
 // Check if a lat-lng is inside a polygon
 function isInPolygon(lat,lon,poly){
-  return geolib.isPointInside({latitude: lat, longitude: lon}, poly);
+	return geolib.isPointInside({latitude: lat, longitude: lon}, poly);
 }
 
 // Guatemala Country Polygon Array
@@ -762,318 +770,318 @@ var polyCountryGuate = [{latitude:17.81585431079451,longitude:-89.15260567494511
 
 // MySQL Scape String, requires MySQL conn object declared
 function sj(s){
-  return conn.escape(s);
+	return conn.escape(s);
 };
 
 
 // convert a twitter timestamp to the standard date-time timestamp mysql handles
 Date.prototype.toMysqlFormat = function(){
-  var twoDigits = function(d) {
-      if(0 <= d && d < 10) return "0" + d.toString();
-      if(-10 < d && d < 0) return "-0" + (-1*d).toString();
-      return d.toString();
-  }
-    return this.getUTCFullYear() + "-" + twoDigits(1 + this.getUTCMonth()) + "-" + twoDigits(this.getUTCDate()) + " " + twoDigits(this.getUTCHours()) + ":" + twoDigits(this.getUTCMinutes()) + ":" + twoDigits(this.getUTCSeconds());
+	var twoDigits = function(d) {
+			if(0 <= d && d < 10) return "0" + d.toString();
+			if(-10 < d && d < 0) return "-0" + (-1*d).toString();
+			return d.toString();
+	}
+		return this.getUTCFullYear() + "-" + twoDigits(1 + this.getUTCMonth()) + "-" + twoDigits(this.getUTCDate()) + " " + twoDigits(this.getUTCHours()) + ":" + twoDigits(this.getUTCMinutes()) + ":" + twoDigits(this.getUTCSeconds());
 };
 // Date from Twitter to MySQL
 twit_date = function(td){
-  return new Date(td).toMysqlFormat();
+	return new Date(td).toMysqlFormat();
 }
 // Return the elapsed days from today date from a twitter time stamp
 function elapsedDays(time_stamp){
-  var ts = new Date(time_stamp);
-  var today = new Date();
-  var one_day = 1000*60*60*24;
-  return Math.ceil((today.getTime() - ts.getTime())/(one_day));
+	var ts = new Date(time_stamp);
+	var today = new Date();
+	var one_day = 1000*60*60*24;
+	return Math.ceil((today.getTime() - ts.getTime())/(one_day));
 }
 // returns current UTC Unix time in seconds
 nowUnix = function(){
-    var now = new Date();
-    return parseInt(now.getTime()/1000)
+		var now = new Date();
+		return parseInt(now.getTime()/1000)
 }
 
 // to add/substract hours to a time and return MySQL time format
 timeOffst = function(t,h){
-  t = parseInt(t);
-  r = new Date((t+(h*60*60))*1000);
-  return r.toMysqlFormat();
+	t = parseInt(t);
+	r = new Date((t+(h*60*60))*1000);
+	return r.toMysqlFormat();
 }
 
 // extract the first url, for twitter client source
 find1stURL = function( text ){
-  text=''+text;
-    var source = (text || '').toString();
-    var urlArray = [];
-    var url;
-    var matchArray;
-    var regexToken = /(((ftp|https?):\/\/)[\-\w@:%_\+.~#?,&\/\/=]+)|((mailto:)?[_.\w-]+@([\w][\w\-]+\.)+[a-zA-Z]{2,3})/g;
-    while( (matchArray = regexToken.exec( source )) !== null ){
-        var token = matchArray[0];
-        urlArray.push( token );
-    }
-    return urlArray[0];
+	text=''+text;
+		var source = (text || '').toString();
+		var urlArray = [];
+		var url;
+		var matchArray;
+		var regexToken = /(((ftp|https?):\/\/)[\-\w@:%_\+.~#?,&\/\/=]+)|((mailto:)?[_.\w-]+@([\w][\w\-]+\.)+[a-zA-Z]{2,3})/g;
+		while( (matchArray = regexToken.exec( source )) !== null ){
+				var token = matchArray[0];
+				urlArray.push( token );
+		}
+		return urlArray[0];
 }
 
 // remove HTML from strings
 strip_html = function(s){
-    var noHTML = /(<([^>]+)>)/ig;
-    return s.replace(noHTML, '');
+		var noHTML = /(<([^>]+)>)/ig;
+		return s.replace(noHTML, '');
 }
 // html translation table, required by html_entity_decode
 get_html_translation_table = function (table, quote_style) {
-    // http://kevin.vanzonneveld.net
-    // +   original by: Philip Peterson
-    // +    revised by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +   bugfixed by: noname
-    // +   bugfixed by: Alex
-    // +   bugfixed by: Marco
-    // +   bugfixed by: madipta
-    // +   improved by: KELAN
-    // +   improved by: Brett Zamir (http://brett-zamir.me)
-    // +   bugfixed by: Brett Zamir (http://brett-zamir.me)
-    // +      input by: Frank Forte
-    // +   bugfixed by: T.Wild
-    // +      input by: Ratheous
-    // %          note: It has been decided that we're not going to add global
-    // %          note: dependencies to php.js, meaning the constants are not
-    // %          note: real constants, but strings instead. Integers are also supported if someone
-    // %          note: chooses to create the constants themselves.
-    // *     example 1: get_html_translation_table('HTML_SPECIALCHARS');
-    // *     returns 1: {'"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;'}
-    var entities = {},
-        hash_map = {},
-        decimal;
-    var constMappingTable = {},
-        constMappingQuoteStyle = {};
-    var useTable = {},
-        useQuoteStyle = {};
+		// http://kevin.vanzonneveld.net
+		// +   original by: Philip Peterson
+		// +    revised by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+		// +   bugfixed by: noname
+		// +   bugfixed by: Alex
+		// +   bugfixed by: Marco
+		// +   bugfixed by: madipta
+		// +   improved by: KELAN
+		// +   improved by: Brett Zamir (http://brett-zamir.me)
+		// +   bugfixed by: Brett Zamir (http://brett-zamir.me)
+		// +      input by: Frank Forte
+		// +   bugfixed by: T.Wild
+		// +      input by: Ratheous
+		// %          note: It has been decided that we're not going to add global
+		// %          note: dependencies to php.js, meaning the constants are not
+		// %          note: real constants, but strings instead. Integers are also supported if someone
+		// %          note: chooses to create the constants themselves.
+		// *     example 1: get_html_translation_table('HTML_SPECIALCHARS');
+		// *     returns 1: {'"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;'}
+		var entities = {},
+				hash_map = {},
+				decimal;
+		var constMappingTable = {},
+				constMappingQuoteStyle = {};
+		var useTable = {},
+				useQuoteStyle = {};
 
-    // Translate arguments
-    constMappingTable[0] = 'HTML_SPECIALCHARS';
-    constMappingTable[1] = 'HTML_ENTITIES';
-    constMappingQuoteStyle[0] = 'ENT_NOQUOTES';
-    constMappingQuoteStyle[2] = 'ENT_COMPAT';
-    constMappingQuoteStyle[3] = 'ENT_QUOTES';
+		// Translate arguments
+		constMappingTable[0] = 'HTML_SPECIALCHARS';
+		constMappingTable[1] = 'HTML_ENTITIES';
+		constMappingQuoteStyle[0] = 'ENT_NOQUOTES';
+		constMappingQuoteStyle[2] = 'ENT_COMPAT';
+		constMappingQuoteStyle[3] = 'ENT_QUOTES';
 
-    useTable = !isNaN(table) ? constMappingTable[table] : table ? table.toUpperCase() : 'HTML_SPECIALCHARS';
-    useQuoteStyle = !isNaN(quote_style) ? constMappingQuoteStyle[quote_style] : quote_style ? quote_style.toUpperCase() : 'ENT_COMPAT';
+		useTable = !isNaN(table) ? constMappingTable[table] : table ? table.toUpperCase() : 'HTML_SPECIALCHARS';
+		useQuoteStyle = !isNaN(quote_style) ? constMappingQuoteStyle[quote_style] : quote_style ? quote_style.toUpperCase() : 'ENT_COMPAT';
 
-    if (useTable !== 'HTML_SPECIALCHARS' && useTable !== 'HTML_ENTITIES') {
-        throw new Error("Table: " + useTable + ' not supported');
-        // return false;
-    }
+		if (useTable !== 'HTML_SPECIALCHARS' && useTable !== 'HTML_ENTITIES') {
+				throw new Error("Table: " + useTable + ' not supported');
+				// return false;
+		}
 
-    entities['38'] = '&amp;';
-    if (useTable === 'HTML_ENTITIES') {
-        entities['160'] = '&nbsp;';
-        entities['161'] = '&iexcl;';
-        entities['162'] = '&cent;';
-        entities['163'] = '&pound;';
-        entities['164'] = '&curren;';
-        entities['165'] = '&yen;';
-        entities['166'] = '&brvbar;';
-        entities['167'] = '&sect;';
-        entities['168'] = '&uml;';
-        entities['169'] = '&copy;';
-        entities['170'] = '&ordf;';
-        entities['171'] = '&laquo;';
-        entities['172'] = '&not;';
-        entities['173'] = '&shy;';
-        entities['174'] = '&reg;';
-        entities['175'] = '&macr;';
-        entities['176'] = '&deg;';
-        entities['177'] = '&plusmn;';
-        entities['178'] = '&sup2;';
-        entities['179'] = '&sup3;';
-        entities['180'] = '&acute;';
-        entities['181'] = '&micro;';
-        entities['182'] = '&para;';
-        entities['183'] = '&middot;';
-        entities['184'] = '&cedil;';
-        entities['185'] = '&sup1;';
-        entities['186'] = '&ordm;';
-        entities['187'] = '&raquo;';
-        entities['188'] = '&frac14;';
-        entities['189'] = '&frac12;';
-        entities['190'] = '&frac34;';
-        entities['191'] = '&iquest;';
-        entities['192'] = '&Agrave;';
-        entities['193'] = '&Aacute;';
-        entities['194'] = '&Acirc;';
-        entities['195'] = '&Atilde;';
-        entities['196'] = '&Auml;';
-        entities['197'] = '&Aring;';
-        entities['198'] = '&AElig;';
-        entities['199'] = '&Ccedil;';
-        entities['200'] = '&Egrave;';
-        entities['201'] = '&Eacute;';
-        entities['202'] = '&Ecirc;';
-        entities['203'] = '&Euml;';
-        entities['204'] = '&Igrave;';
-        entities['205'] = '&Iacute;';
-        entities['206'] = '&Icirc;';
-        entities['207'] = '&Iuml;';
-        entities['208'] = '&ETH;';
-        entities['209'] = '&Ntilde;';
-        entities['210'] = '&Ograve;';
-        entities['211'] = '&Oacute;';
-        entities['212'] = '&Ocirc;';
-        entities['213'] = '&Otilde;';
-        entities['214'] = '&Ouml;';
-        entities['215'] = '&times;';
-        entities['216'] = '&Oslash;';
-        entities['217'] = '&Ugrave;';
-        entities['218'] = '&Uacute;';
-        entities['219'] = '&Ucirc;';
-        entities['220'] = '&Uuml;';
-        entities['221'] = '&Yacute;';
-        entities['222'] = '&THORN;';
-        entities['223'] = '&szlig;';
-        entities['224'] = '&agrave;';
-        entities['225'] = '&aacute;';
-        entities['226'] = '&acirc;';
-        entities['227'] = '&atilde;';
-        entities['228'] = '&auml;';
-        entities['229'] = '&aring;';
-        entities['230'] = '&aelig;';
-        entities['231'] = '&ccedil;';
-        entities['232'] = '&egrave;';
-        entities['233'] = '&eacute;';
-        entities['234'] = '&ecirc;';
-        entities['235'] = '&euml;';
-        entities['236'] = '&igrave;';
-        entities['237'] = '&iacute;';
-        entities['238'] = '&icirc;';
-        entities['239'] = '&iuml;';
-        entities['240'] = '&eth;';
-        entities['241'] = '&ntilde;';
-        entities['242'] = '&ograve;';
-        entities['243'] = '&oacute;';
-        entities['244'] = '&ocirc;';
-        entities['245'] = '&otilde;';
-        entities['246'] = '&ouml;';
-        entities['247'] = '&divide;';
-        entities['248'] = '&oslash;';
-        entities['249'] = '&ugrave;';
-        entities['250'] = '&uacute;';
-        entities['251'] = '&ucirc;';
-        entities['252'] = '&uuml;';
-        entities['253'] = '&yacute;';
-        entities['254'] = '&thorn;';
-        entities['255'] = '&yuml;';
-    }
+		entities['38'] = '&amp;';
+		if (useTable === 'HTML_ENTITIES') {
+				entities['160'] = '&nbsp;';
+				entities['161'] = '&iexcl;';
+				entities['162'] = '&cent;';
+				entities['163'] = '&pound;';
+				entities['164'] = '&curren;';
+				entities['165'] = '&yen;';
+				entities['166'] = '&brvbar;';
+				entities['167'] = '&sect;';
+				entities['168'] = '&uml;';
+				entities['169'] = '&copy;';
+				entities['170'] = '&ordf;';
+				entities['171'] = '&laquo;';
+				entities['172'] = '&not;';
+				entities['173'] = '&shy;';
+				entities['174'] = '&reg;';
+				entities['175'] = '&macr;';
+				entities['176'] = '&deg;';
+				entities['177'] = '&plusmn;';
+				entities['178'] = '&sup2;';
+				entities['179'] = '&sup3;';
+				entities['180'] = '&acute;';
+				entities['181'] = '&micro;';
+				entities['182'] = '&para;';
+				entities['183'] = '&middot;';
+				entities['184'] = '&cedil;';
+				entities['185'] = '&sup1;';
+				entities['186'] = '&ordm;';
+				entities['187'] = '&raquo;';
+				entities['188'] = '&frac14;';
+				entities['189'] = '&frac12;';
+				entities['190'] = '&frac34;';
+				entities['191'] = '&iquest;';
+				entities['192'] = '&Agrave;';
+				entities['193'] = '&Aacute;';
+				entities['194'] = '&Acirc;';
+				entities['195'] = '&Atilde;';
+				entities['196'] = '&Auml;';
+				entities['197'] = '&Aring;';
+				entities['198'] = '&AElig;';
+				entities['199'] = '&Ccedil;';
+				entities['200'] = '&Egrave;';
+				entities['201'] = '&Eacute;';
+				entities['202'] = '&Ecirc;';
+				entities['203'] = '&Euml;';
+				entities['204'] = '&Igrave;';
+				entities['205'] = '&Iacute;';
+				entities['206'] = '&Icirc;';
+				entities['207'] = '&Iuml;';
+				entities['208'] = '&ETH;';
+				entities['209'] = '&Ntilde;';
+				entities['210'] = '&Ograve;';
+				entities['211'] = '&Oacute;';
+				entities['212'] = '&Ocirc;';
+				entities['213'] = '&Otilde;';
+				entities['214'] = '&Ouml;';
+				entities['215'] = '&times;';
+				entities['216'] = '&Oslash;';
+				entities['217'] = '&Ugrave;';
+				entities['218'] = '&Uacute;';
+				entities['219'] = '&Ucirc;';
+				entities['220'] = '&Uuml;';
+				entities['221'] = '&Yacute;';
+				entities['222'] = '&THORN;';
+				entities['223'] = '&szlig;';
+				entities['224'] = '&agrave;';
+				entities['225'] = '&aacute;';
+				entities['226'] = '&acirc;';
+				entities['227'] = '&atilde;';
+				entities['228'] = '&auml;';
+				entities['229'] = '&aring;';
+				entities['230'] = '&aelig;';
+				entities['231'] = '&ccedil;';
+				entities['232'] = '&egrave;';
+				entities['233'] = '&eacute;';
+				entities['234'] = '&ecirc;';
+				entities['235'] = '&euml;';
+				entities['236'] = '&igrave;';
+				entities['237'] = '&iacute;';
+				entities['238'] = '&icirc;';
+				entities['239'] = '&iuml;';
+				entities['240'] = '&eth;';
+				entities['241'] = '&ntilde;';
+				entities['242'] = '&ograve;';
+				entities['243'] = '&oacute;';
+				entities['244'] = '&ocirc;';
+				entities['245'] = '&otilde;';
+				entities['246'] = '&ouml;';
+				entities['247'] = '&divide;';
+				entities['248'] = '&oslash;';
+				entities['249'] = '&ugrave;';
+				entities['250'] = '&uacute;';
+				entities['251'] = '&ucirc;';
+				entities['252'] = '&uuml;';
+				entities['253'] = '&yacute;';
+				entities['254'] = '&thorn;';
+				entities['255'] = '&yuml;';
+		}
 
-    if (useQuoteStyle !== 'ENT_NOQUOTES') {
-        entities['34'] = '&quot;';
-    }
-    if (useQuoteStyle === 'ENT_QUOTES') {
-        entities['39'] = '&#39;';
-    }
-    entities['60'] = '&lt;';
-    entities['62'] = '&gt;';
+		if (useQuoteStyle !== 'ENT_NOQUOTES') {
+				entities['34'] = '&quot;';
+		}
+		if (useQuoteStyle === 'ENT_QUOTES') {
+				entities['39'] = '&#39;';
+		}
+		entities['60'] = '&lt;';
+		entities['62'] = '&gt;';
 
 
-    // ascii decimals to real symbols
-    for (decimal in entities) {
-        if (entities.hasOwnProperty(decimal)) {
-            hash_map[String.fromCharCode(decimal)] = entities[decimal];
-        }
-    }
+		// ascii decimals to real symbols
+		for (decimal in entities) {
+				if (entities.hasOwnProperty(decimal)) {
+						hash_map[String.fromCharCode(decimal)] = entities[decimal];
+				}
+		}
 
-    return hash_map;
+		return hash_map;
 }
 // html decode entities, required by tweetPlain
 html_entity_decode = function (string, quote_style) {
-    // http://kevin.vanzonneveld.net
-    // +   original by: john (http://www.jd-tech.net)
-    // +      input by: ger
-    // +   improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +    revised by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +   bugfixed by: Onno Marsman
-    // +   improved by: marc andreu
-    // +    revised by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
-    // +      input by: Ratheous
-    // +   bugfixed by: Brett Zamir (http://brett-zamir.me)
-    // +      input by: Nick Kolosov (http://sammy.ru)
-    // +   bugfixed by: Fox
-    // -    depends on: get_html_translation_table
-    // *     example 1: html_entity_decode('Kevin &amp; van Zonneveld');
-    // *     returns 1: 'Kevin & van Zonneveld'
-    // *     example 2: html_entity_decode('&amp;lt;');
-    // *     returns 2: '&lt;'
-    var hash_map = {},
-        symbol = '',
-        tmp_str = '',
-        entity = '';
-    tmp_str = string.toString();
+		// http://kevin.vanzonneveld.net
+		// +   original by: john (http://www.jd-tech.net)
+		// +      input by: ger
+		// +   improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+		// +    revised by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+		// +   bugfixed by: Onno Marsman
+		// +   improved by: marc andreu
+		// +    revised by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+		// +      input by: Ratheous
+		// +   bugfixed by: Brett Zamir (http://brett-zamir.me)
+		// +      input by: Nick Kolosov (http://sammy.ru)
+		// +   bugfixed by: Fox
+		// -    depends on: get_html_translation_table
+		// *     example 1: html_entity_decode('Kevin &amp; van Zonneveld');
+		// *     returns 1: 'Kevin & van Zonneveld'
+		// *     example 2: html_entity_decode('&amp;lt;');
+		// *     returns 2: '&lt;'
+		var hash_map = {},
+				symbol = '',
+				tmp_str = '',
+				entity = '';
+		tmp_str = string.toString();
 
-    if (false === (hash_map = get_html_translation_table('HTML_ENTITIES', quote_style))) {
-        return false;
-    }
+		if (false === (hash_map = get_html_translation_table('HTML_ENTITIES', quote_style))) {
+				return false;
+		}
 
-    // fix &amp; problem
-    // http://phpjs.org/functions/get_html_translation_table:416#comment_97660
-    delete(hash_map['&']);
-    hash_map['&'] = '&amp;';
+		// fix &amp; problem
+		// http://phpjs.org/functions/get_html_translation_table:416#comment_97660
+		delete(hash_map['&']);
+		hash_map['&'] = '&amp;';
 
-    for (symbol in hash_map) {
-        entity = hash_map[symbol];
-        tmp_str = tmp_str.split(entity).join(symbol);
-    }
-    tmp_str = tmp_str.split('&#039;').join("'");
+		for (symbol in hash_map) {
+				entity = hash_map[symbol];
+				tmp_str = tmp_str.split(entity).join(symbol);
+		}
+		tmp_str = tmp_str.split('&#039;').join("'");
 
-    return tmp_str;
+		return tmp_str;
 }
 // parse a tweet text with entities and return the original text
 tweetPlain = function (body, entities) {
-  urls = entities.urls;
+	urls = entities.urls;
 
-  urls.forEach(function (val, index, array) {
-    if (val.display_url) {
-      link = val.expanded_url;
-    }else{
-      link = val.url;
-    }
-    body = body.replace(val.url, link);
-  });
-  return html_entity_decode(body);
+	urls.forEach(function (val, index, array) {
+		if (val.display_url) {
+			link = val.expanded_url;
+		}else{
+			link = val.url;
+		}
+		body = body.replace(val.url, link);
+	});
+	return html_entity_decode(body);
 }
 
 // convert seconds to a time format understandable
 Number.prototype.toHHMMSS = function () {
-    sec_numb    = parseInt(this);
-    var hours   = Math.floor(sec_numb / 3600);
-    var minutes = Math.floor((sec_numb - (hours * 3600)) / 60);
-    var seconds = sec_numb - (hours * 3600) - (minutes * 60);
+		sec_numb    = parseInt(this);
+		var hours   = Math.floor(sec_numb / 3600);
+		var minutes = Math.floor((sec_numb - (hours * 3600)) / 60);
+		var seconds = sec_numb - (hours * 3600) - (minutes * 60);
 
-    if (hours   < 10) {hours   = "0"+hours;}
-    if (minutes < 10) {minutes = "0"+minutes;}
-    if (seconds < 10) {seconds = "0"+seconds;}
-    var time    = hours+':'+minutes+':'+seconds;
-    return time;
+		if (hours   < 10) {hours   = "0"+hours;}
+		if (minutes < 10) {minutes = "0"+minutes;}
+		if (seconds < 10) {seconds = "0"+seconds;}
+		var time    = hours+':'+minutes+':'+seconds;
+		return time;
 }
 
 // extract mentions and hashtags
 function cloudtagExtractor(s){
-  var phr = {};
-  var words = s.match(/[@#]\w+/g);
-  if(words){
-    words.forEach(function (val, index, array) {
-        phr[val]=0;
-    });
-    words.forEach(function (val, index, array) {
-        phr[val]=phr[val]+1;
-    });
-  }
-  return phr;
+	var phr = {};
+	var words = s.match(/[@#]\w+/g);
+	if(words){
+		words.forEach(function (val, index, array) {
+				phr[val]=0;
+		});
+		words.forEach(function (val, index, array) {
+				phr[val]=phr[val]+1;
+		});
+	}
+	return phr;
 }
 
 function JSON_stringify(s, emit_unicode)
 {
-   var json = JSON.stringify(s);
-   return emit_unicode ? json : json.replace(/[\u007f-\uffff]/g,
-      function(c) { 
-        return '\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4);
-      }
-   );
+	 var json = JSON.stringify(s);
+	 return emit_unicode ? json : json.replace(/[\u007f-\uffff]/g,
+			function(c) { 
+				return '\\u'+('0000'+c.charCodeAt(0).toString(16)).slice(-4);
+			}
+	 );
 }
